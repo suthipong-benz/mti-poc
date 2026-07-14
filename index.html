@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTI</title>
+<style>
+  :root { --mti-black: #001e40; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #001e40; font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+
+  #stage { position: absolute; inset: 0; background: #fff; overflow: hidden; }
+
+  #galaxy { position: absolute; inset: 0; z-index: 3; overflow: hidden; clip-path: circle(0 at 64% 37%); }
+  #galaxyImg { position: absolute; user-select: none; pointer-events: none; }
+  #blue { position: absolute; inset: 0; background: #123f80; opacity: 0; mix-blend-mode: multiply; }
+
+  #mtiBlack { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--mti-black); z-index: 2; }
+  #star { position: absolute; left: 64%; top: 37%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(255, 255, 255, .85); z-index: 4; }
+
+  #copy { position: absolute; left: 0; right: 0; top: 58%; text-align: center; z-index: 5; }
+  #logo { height: 42px; opacity: 0; }
+  #tagline { margin-top: 14px; opacity: 0; color: var(--mti-black); font-size: 15px; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="galaxy">
+      <img id="galaxyImg" src="../requirements/galaxy.jpg" alt="">
+      <div id="blue"></div>
+    </div>
+    <div id="mtiBlack"><div id="star"></div></div>
+    <div id="copy">
+      <img id="logo" src="../requirements/logo.svg" alt="MTI">
+      <div id="tagline">Make Tomorrow Illuminated.</div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    (function () {
+      const stage = document.getElementById('stage');
+      const mti = document.getElementById('mtiBlack');
+      const star = document.getElementById('star');
+      const galaxy = document.getElementById('galaxy');
+      const galaxyImg = document.getElementById('galaxyImg');
+      const blue = document.getElementById('blue');
+      const logo = document.getElementById('logo');
+      const tag = document.getElementById('tagline');
+      const copy = document.getElementById('copy');
+
+      const NAT = { w: 1893, h: 831 };
+      const CORE = { x: 0.505, y: 0.509 };
+      const AX = 0.64, AY = 0.37;
+
+      let tl;
+
+      function coverGalaxy(W, H) {
+        const scale = Math.max(
+          (AX * W) / (CORE.x * NAT.w),
+          ((1 - AX) * W) / ((1 - CORE.x) * NAT.w),
+          (AY * H) / (CORE.y * NAT.h),
+          ((1 - AY) * H) / ((1 - CORE.y) * NAT.h)
+        ) * 1.03;
+        const w = NAT.w * scale, h = NAT.h * scale;
+        gsap.set(galaxyImg, { width: w, height: h, left: AX * W - CORE.x * w, top: AY * H - CORE.y * h });
+      }
+
+      function makeOrbit(dir, radius) {
+        const state = { p: 0 };
+        const rampIn = 0.16, rampOut = 0.34;
+        const smooth = t => t * t * (3 - 2 * t);
+        function update() {
+          const p = state.p;
+          const angle = dir * 2 * Math.PI * p;
+          const r = p < rampIn ? radius * smooth(p / rampIn)
+            : p > 1 - rampOut ? radius * smooth((1 - p) / rampOut)
+            : radius;
+          gsap.set(star, { x: r * Math.cos(angle), y: r * Math.sin(angle) });
+        }
+        return { state, update };
+      }
+
+      function build() {
+        if (tl) tl.kill();
+
+        const W = stage.clientWidth, H = stage.clientHeight;
+        const mark = Math.min(W, H) * 0.2;
+        const revealRadius = Math.hypot(W, H) * 1.2;
+        const square = H * 0.78;
+        const insetV = (H - square) / 2 / H * 100;
+        const insetH = (W - square) / 2 / W * 100;
+
+        coverGalaxy(W, H);
+
+        gsap.set(mti, { width: W, height: H });
+        gsap.set(star, { opacity: 0, x: 0, y: 0, left: AX * 100 + '%', top: AY * 100 + '%' });
+        gsap.set(galaxy, { clipPath: 'circle(0px at ' + AX * 100 + '% ' + AY * 100 + '%)' });
+        gsap.set(blue, { opacity: 0 });
+        gsap.set([logo, tag], { opacity: 0, y: 12 });
+        gsap.set(copy, { top: 50 + (mark / 2) / H * 100 + 9 + '%' });
+
+        const shrinkSpin = makeOrbit(1, mark * 0.28);
+        const growSpin = makeOrbit(-1, mark * 0.28);
+        const reveal = { r: 0 };
+        const crop = { t: 0 };
+
+        tl = gsap.timeline({ defaults: { ease: 'power2.inOut' } });
+
+        tl.to(star, { opacity: 1, duration: 0.5 }, 0.3);
+
+        tl.to(mti, { width: mark, duration: 1.05, ease: 'power3.inOut' }, 1.0);
+        tl.to(mti, { height: mark, duration: 0.85, ease: 'power3.inOut' }, 1.85);
+        tl.to(shrinkSpin.state, { p: 1, duration: 1.75, ease: 'sine.inOut', onUpdate: shrinkSpin.update }, 0.95);
+
+        tl.to(logo, { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out' }, 2.85);
+        tl.to(tag, { opacity: 1, y: 0, duration: 0.8, ease: 'power1.out' }, 3.4);
+        tl.to([logo, tag], { opacity: 0, duration: 0.55 }, 4.6);
+
+        tl.to(mti, { width: mark * 1.35, height: mark * 1.35, duration: 0.5, ease: 'power2.in' }, 5.1);
+        tl.to(mti, { width: W, height: H, duration: 1.0, ease: 'power3.inOut' }, 5.55);
+        tl.to(growSpin.state, { p: 1, duration: 1.4, ease: 'sine.inOut', onUpdate: growSpin.update }, 5.05);
+
+        tl.to(star, { opacity: 0, duration: 0.55, ease: 'power1.inOut' }, 6.45);
+
+        const revealStart = 6.5, revealDuration = 1.25;
+        tl.to(reveal, {
+          r: revealRadius, duration: revealDuration, ease: 'power2.inOut',
+          onUpdate() { galaxy.style.clipPath = 'circle(' + reveal.r + 'px at ' + AX * 100 + '% ' + AY * 100 + '%)'; }
+        }, revealStart);
+        tl.set(galaxy, { clipPath: 'inset(0px)' }, revealStart + revealDuration);
+
+        const finish = revealStart + revealDuration + 0.15;
+        tl.to(blue, { opacity: 0.6, duration: 0.95 }, finish);
+        tl.to(crop, {
+          t: 1, duration: 0.95, ease: 'power2.inOut',
+          onUpdate() { galaxy.style.clipPath = 'inset(' + insetV * crop.t + '% ' + insetH * crop.t + '%)'; }
+        }, finish);
+      }
+
+      build();
+
+      let resizeTimer;
+      window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+          const progress = tl ? tl.progress() : 0;
+          build();
+          tl.progress(progress);
+        }, 150);
+      });
+    })();
+  </script>
+</body>
+</html>
